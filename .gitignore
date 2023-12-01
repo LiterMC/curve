@@ -1,0 +1,12 @@
+
+# Mac OS
+.DS_Store
+
+# tests
+/test
+
+# outputs
+/output
+
+# workspace
+go.work
