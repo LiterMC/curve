@@ -16,19 +16,21 @@
 package main
 
 import (
-	"time"
-
 	"github.com/g3n/engine/app"
-	"github.com/g3n/engine/renderer"
-	"github.com/g3n/engine/window"
-	// mol "github.com/LiterMC/molecular"
 )
 
 func main() {
-	app := app.App(800, 600, "Curve")
-	win := app.IWindow.(*window.GlfwWindow)
-	win.SetTitle("Curve | Initing")
-	app.Run(func(rend *renderer.Renderer, dt time.Duration) {
-		//
-	})
+	app := app.App(1300, 800, "Curve")
+
+	r := &Runner{
+		Application: app,
+	}
+
+	err := r.Init()
+	if err != nil {
+		// TODO: maybe pop up the error
+		panic(err)
+	}
+
+	app.Run(r.Tick)
 }
