@@ -2,7 +2,7 @@ module github.com/LiterMC/curve
 
 go 1.21.1
 
-require github.com/g3n/engine v0.2.1-0.20231019231919-fc34de52eb24
+require github.com/g3n/engine v0.2.1-0.20231210143125-4e30d5c3f79e
 
 require (
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20210410170116-ea3d685f79fb // indirect

@@ -24,11 +24,12 @@ type Tickable interface {
 
 type Runner struct {
 	*app.Application
-	scene *core.Node
-	cam   *camera.Camera
+	mainScene *core.Node
+	cam       *camera.Camera
 
 	// status
 	lastFpsUpdate time.Time
+	frameCount int
 	stats         guiStatus
 
 	intEng    *mol.Engine // internal physics engine
@@ -42,6 +43,16 @@ type guiStatus struct {
 	guiSpeed *gui.Label
 	Pos      mol.Vec3
 	guiPos   *gui.Label
+	Anchor   *mol.Object
+	guiAnchor *gui.Label
+	guiAnchorPos *gui.Label
+}
+
+func (s *guiStatus) update() {
+	s.guiSpeed.SetText(fmt.Sprintf("%.2f m/s", s.Speed))
+	s.guiPos.SetText(fmt.Sprintf("%.1f, %.1f, %.1f", s.Pos.X, s.Pos.Y, s.Pos.Z))
+	s.guiAnchor.SetText(s.Anchor.Id().String())
+	s.guiAnchorPos.SetText((fmt.Sprintf("%.1f, %.1f, %.1f", s.Anchor.Pos().X, s.Anchor.Pos().Y, s.Anchor.Pos().Z)))
 }
 
 func (r *Runner) initEngine(now time.Time) {
@@ -54,9 +65,9 @@ func (r *Runner) initEngine(now time.Time) {
 		for {
 			select {
 			case t := <-ticker.C:
-				dt := t.Sub(last).Seconds()
+				dt := t.Sub(last)
 				start := time.Now()
-				r.intEng.Tick(dt * 10)
+				r.intEng.Tick(dt)
 				spt := time.Since(start)
 				if logc++; logc > 100 {
 					logc = 0
@@ -77,10 +88,9 @@ func (r *Runner) Init() (err error) {
 
 	log.Println("new scene")
 	scene := core.NewNode()
-	r.scene = scene
-	gui.Manager().Set(scene)
+	r.mainScene = scene
 
-	r.cam = camera.NewPerspective(1, 0.01, 2 * 60 * 60 * mol.C / posScale, 60, camera.Vertical)
+	r.cam = camera.NewPerspective(1, 0.01, 2*60*60*mol.C/posScale, 60, camera.Vertical)
 	r.player = NewPlayer(r.cam)
 	r.playerObj = r.intEng.NewObject(mol.LivingObj, nil, mol.Vec3{0, 0, 0}, func(player *mol.Object) {
 		player.AddBlock(r.player)
@@ -115,15 +125,14 @@ func (r *Runner) Init() (err error) {
 	// Create and add lights to the scene
 	log.Println("add light")
 	scene.Add(light.NewAmbient(&math32.Color{1.0, 1.0, 1.0}, 0.8))
-	// pointLight := light.NewPoint(&math32.Color{1, 1, 1}, 25.0)
-	// pointLight.SetPosition(0, 3, 0)
-	// scene.Add(pointLight)
 
 	scene.Add(helper.NewAxes(0))
 
 	log.Println("set clear color")
 	r.Gls().ClearColor(0.05, 0.05, 0.05, 1)
 	log.Println("done")
+
+	gui.Manager().Set(r.mainScene)
 	return
 }
 
@@ -135,45 +144,61 @@ func (r *Runner) initGUIs() {
 	}
 	indicator.SetContentSize(9, 9)
 	indicator.SetPosition((float32)((w-9)/2), (float32)((h-9)/2))
-	r.scene.Add(indicator)
+	r.mainScene.Add(indicator)
 
-	statBox := gui.NewPanel(400, 45)
+	statBox := gui.NewPanel(400, 22 * 10)
 	statBox.SetPosition(10, 10)
 	statBox.SetPaddings(5, 5, 5, 5)
 	statBox.SetColor4(&math32.Color4{0.7, 0.7, 0.7, 0.5})
 
 	speedLb := gui.NewLabel("Speed:")
 	statBox.Add(speedLb)
-	r.stats.guiSpeed = gui.NewLabel("0 m/s")
-	r.stats.guiSpeed.SetPosition(speedLb.Width()+5, 0)
+	r.stats.guiSpeed = gui.NewLabel("")
+	r.stats.guiSpeed.SetPosition(speedLb.Width()+5, speedLb.Position().Y)
 	statBox.Add(r.stats.guiSpeed)
 
 	posLb := gui.NewLabel("Pos:")
 	posLb.SetPositionY(22)
 	statBox.Add(posLb)
-	r.stats.guiPos = gui.NewLabel("0, 0, 0")
-	r.stats.guiPos.SetPosition(posLb.Width()+5, 22)
+	r.stats.guiPos = gui.NewLabel("")
+	r.stats.guiPos.SetPosition(posLb.Width()+5, posLb.Position().Y)
 	statBox.Add(r.stats.guiPos)
 
-	r.scene.Add(statBox)
+	anchorLb := gui.NewLabel("Anchor:")
+	anchorLb.SetPositionY(44)
+	statBox.Add(anchorLb)
+	r.stats.guiAnchor = gui.NewLabel("")
+	r.stats.guiAnchor.SetPosition(anchorLb.Width()+5, anchorLb.Position().Y)
+	statBox.Add(r.stats.guiAnchor)
+
+	anchorPosLb := gui.NewLabel("Anchor Pos:")
+	anchorPosLb.SetPositionY(66)
+	statBox.Add(anchorPosLb)
+	r.stats.guiAnchorPos = gui.NewLabel("")
+	r.stats.guiAnchorPos.SetPosition(anchorPosLb.Width()+5, anchorPosLb.Position().Y)
+	statBox.Add(r.stats.guiAnchorPos)
+
+	r.mainScene.Add(statBox)
 }
 
 func (r *Runner) Tick(rend *renderer.Renderer, dt time.Duration) {
 	now := time.Now()
-	if now.Sub(r.lastFpsUpdate) >= time.Second {
+	if r.frameCount++; now.Sub(r.lastFpsUpdate) >= time.Second {
+		r.SetTitle(fmt.Sprintf("Curve | FPS: %d", r.frameCount))
 		r.lastFpsUpdate = now
-		r.SetTitle(fmt.Sprintf("Curve | FPS: %.1f", (float32)(time.Second)/(float32)(dt)))
+		r.frameCount = 0
 	}
 
-	r.intEng.ForeachBlock(func(b mol.Block){
-		if t, ok := b.(interface{ renderTick(r *Runner, dt time.Duration) }); ok {
+	r.intEng.ForeachBlock(func(b mol.Block) {
+		if t, ok := b.(interface {
+			renderTick(r *Runner, dt time.Duration)
+		}); ok {
 			t.renderTick(r, dt)
 		}
 	})
 
-	r.stats.guiSpeed.SetText(fmt.Sprintf("%.2f m/s", r.stats.Speed))
-	r.stats.guiPos.SetText(fmt.Sprintf("%.1f, %.1f, %.1f", r.stats.Pos.X, r.stats.Pos.Y, r.stats.Pos.Z))
+	r.stats.update()
 
 	r.Gls().Clear(gls.DEPTH_BUFFER_BIT | gls.STENCIL_BUFFER_BIT | gls.COLOR_BUFFER_BIT)
-	rend.Render(r.scene, r.cam)
+	rend.Render(r.mainScene, r.cam)
 }

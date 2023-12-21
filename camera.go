@@ -75,7 +75,7 @@ func NewFollowControl(cam *camera.Camera) (fc *FollowControl) {
 
 	fc.MinFOV = 10.0
 	fc.MaxFOV = 100.0
-	fc.MoveSpeed = 1e6
+	fc.MoveSpeed = 10000.0
 	fc.MouseRotSpeed = 0.1
 	fc.KeyRotSpeed = 30 * math32.Pi / 180
 	fc.KeyZoomSpeed = 5.0
@@ -131,7 +131,7 @@ func (fc *FollowControl) Tick(dt time.Duration) {
 	if fc.enabled&FollowMove != 0 {
 		moveSpeed := fc.MoveSpeed * dts
 		if fc.status&followSprint != 0 {
-			moveSpeed *= 1000
+			moveSpeed *= 10
 		}
 		var dir math32.Vector3
 		if fc.status&followMoveForward != 0 {

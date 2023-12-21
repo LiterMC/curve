@@ -37,7 +37,7 @@ func NewPlayer(cam *camera.Camera) (p *Player) {
 		dir.Normalize()
 		dir.MultiplyScalar(dist)
 		// Get world position
-		vel := p.object.Velocity()
+		vel := p.object.VelocityLocked()
 		vel.Add(ToMolVec3(&dir))
 		p.object.SetVelocity(vel)
 		return true
@@ -70,10 +70,11 @@ func (p *Player) Tick(dt float64) {
 
 func (p *Player) renderTick(r *Runner, dt time.Duration) {
 	obj := p.object
-	pos := obj.AbsPos()
+	pos := obj.AbsPosLocked()
 
-	r.stats.Speed = obj.Velocity().Len()
-	r.stats.Pos = pos
+	r.stats.Speed = obj.VelocityLocked().Len()
+	r.stats.Pos = obj.PosLocked()
+	r.stats.Anchor = obj.AnchorLocked()
 
 	cam := p.ctrl.Camera()
 	p.ctrl.Tick(dt)
